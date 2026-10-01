@@ -122,14 +122,14 @@ Navigate to the `backend` folder and start Uvicorn:
 
 ```bash
 cd backend
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
 The backend will be available at:
-- **API Root**: [http://localhost:8000/](http://localhost:8000/)
-- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
-- **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Alternative ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **API Root**: [http://localhost:8001/](http://localhost:8001/)
+- **Health Check**: [http://localhost:8001/health](http://localhost:8001/health)
+- **Interactive Swagger Docs**: [http://localhost:8001/docs](http://localhost:8001/docs)
+- **Alternative ReDoc**: [http://localhost:8001/redoc](http://localhost:8001/redoc)
 
 ---
 
@@ -158,7 +158,7 @@ Copy-Item .env.example .env
 cp .env.example .env
 ```
 
-*(By default, it connects to `http://localhost:8000`)*.
+*(By default, it connects to `http://localhost:8001`)*.
 
 #### Step 3.3: Start Vite Development Server
 

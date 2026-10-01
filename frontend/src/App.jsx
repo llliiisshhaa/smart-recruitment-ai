@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 
 export default function App() {
-  // Read backend base URL from Vite environment variable (or fallback to default localhost:8000)
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  // Read backend base URL from Vite environment variable (or fallback to default localhost:8001)
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
   // State to manage health check results
   const [healthData, setHealthData] = useState(null)
@@ -226,7 +226,7 @@ export default function App() {
                 <div className="mt-3 text-xs bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 font-mono text-slate-300">
                   <span className="text-slate-500"># Start backend with:</span><br />
                   cd backend<br />
-                  uvicorn app.main:app --reload --port 8000
+                  uvicorn app.main:app --reload --port 8001
                 </div>
               </div>
             </div>
