@@ -15,8 +15,13 @@ class Settings(BaseSettings):
     """
 
     DATABASE_URL: str = Field(
-        default="postgresql://postgres:postgres@localhost:5432/smart_recruitment_db",
+        default="postgresql://postgres:postgres@localhost:5432/smart_recruitment",
         description="PostgreSQL connection string (e.g. postgresql://user:password@localhost:5432/dbname)",
+    )
+
+    TEST_DATABASE_URL: str = Field(
+        default="postgresql://postgres:postgres@localhost:5432/smart_recruitment_test",
+        description="Separate test PostgreSQL database connection string",
     )
     SECRET_KEY: str = Field(
         default="dev-secret-key-change-in-production-use-a-strong-random-string",
