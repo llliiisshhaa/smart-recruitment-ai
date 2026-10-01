@@ -1,0 +1,2 @@
+# Placeholder to keep the database directory tracked in git.
+# Database migration scripts (Alembic) and SQL schemas will be stored here.
