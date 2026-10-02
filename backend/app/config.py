@@ -4,6 +4,7 @@ Loads settings from environment variables and .env files using pydantic-settings
 """
 
 import sys
+
 from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,14 +24,27 @@ class Settings(BaseSettings):
         default="postgresql://postgres:postgres@localhost:5432/smart_recruitment_test",
         description="Separate test PostgreSQL database connection string",
     )
+
     SECRET_KEY: str = Field(
         default="dev-secret-key-change-in-production-use-a-strong-random-string",
         description="Secret key for JWT generation and session signing",
     )
+
+    ALGORITHM: str = Field(
+        default="HS256",
+        description="Algorithm used to sign JWT access tokens",
+    )
+
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30,
+        description="JWT access token lifetime in minutes",
+    )
+
     GEMINI_API_KEY: str = Field(
         default="",
         description="Google Gemini API key for future AI interview & evaluation features",
     )
+
     FRONTEND_ORIGIN: str = Field(
         default="http://localhost:5173",
         description="Allowed frontend origin for Cross-Origin Resource Sharing (CORS)",
@@ -53,11 +67,19 @@ def load_settings() -> Settings:
     except ValidationError as exc:
         print("\n" + "=" * 65, file=sys.stderr)
         print("[CONFIG ERROR] Could not load application settings:", file=sys.stderr)
+
         for error in exc.errors():
             loc = " -> ".join(str(part) for part in error.get("loc", []))
             msg = error.get("msg", "Invalid value")
-            print(f"  * Variable '{loc}': {msg}", file=sys.stderr)
-        print("\nTroubleshooting tip: Check your .env file and ensure values match .env.example", file=sys.stderr)
+            print(
+                f"  * Variable '{loc}': {msg}",
+                file=sys.stderr,
+            )
+
+        print(
+            "\nTroubleshooting tip: Check your .env file and ensure values match .env.example",
+            file=sys.stderr,
+        )
         print("=" * 65 + "\n", file=sys.stderr)
         raise exc
 

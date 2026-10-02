@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.api.auth import router as auth_router
 
 # Configure logger
 logger = logging.getLogger("uvicorn.error")
@@ -36,6 +37,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Authentication routes
+app.include_router(auth_router)
 
 
 @app.get("/", tags=["Root"])
