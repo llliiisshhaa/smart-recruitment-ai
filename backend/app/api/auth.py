@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user, require_roles
 from app.core.security import create_access_token, hash_password, verify_password
 from app.database import get_db
-from app.models.user import User
+from app.models.user import CandidateProfile, RecruiterProfile, User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserResponse
-from app.core.dependencies import get_current_user
+from app.services.audit import log_event
 
 
 router = APIRouter(
@@ -31,8 +32,8 @@ def register_user(
 
     if request.role not in allowed_roles:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Role must be candidate or recruiter",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Public registration is only permitted for candidate and recruiter roles",
         )
 
     # Check whether the email is already registered.
@@ -57,8 +58,26 @@ def register_user(
     )
 
     db.add(user)
+    db.flush()
+
+    # Automatically create the matching empty profile extension row
+    if user.role == "candidate":
+        db.add(CandidateProfile(user_id=user.id))
+    elif user.role == "recruiter":
+        db.add(RecruiterProfile(user_id=user.id, company_name=""))
+
     db.commit()
     db.refresh(user)
+
+    # Record registration audit trail
+    log_event(
+        db=db,
+        user_id=user.id,
+        action="USER_REGISTERED",
+        entity_type="user",
+        entity_id=user.id,
+        details={"email": user.email, "role": user.role},
+    )
 
     return user
 
@@ -87,6 +106,14 @@ def login_user(
         request.password,
         user.password_hash,
     ):
+        log_event(
+            db=db,
+            user_id=None,
+            action="LOGIN_FAILED",
+            entity_type="user",
+            entity_id=None,
+            details={"attempted_email": request.email},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -94,18 +121,38 @@ def login_user(
 
     # Prevent inactive accounts from logging in.
     if not user.is_active:
+        log_event(
+            db=db,
+            user_id=user.id,
+            action="LOGIN_FAILED",
+            entity_type="user",
+            entity_id=user.id,
+            details={"attempted_email": request.email, "reason": "inactive_account"},
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive",
         )
 
-    # Create a JWT containing the user's ID.
-    access_token = create_access_token(user.id)
+    # Create a JWT containing user ID, role, and expiry.
+    access_token = create_access_token(user_id=user.id, role=user.role)
+
+    # Record successful login audit trail
+    log_event(
+        db=db,
+        user_id=user.id,
+        action="LOGIN_SUCCESS",
+        entity_type="user",
+        entity_id=user.id,
+        details={"email": user.email},
+    )
 
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
     )
+
+
 @router.get(
     "/me",
     response_model=UserResponse,
@@ -117,3 +164,56 @@ def get_me(
     """Return the currently authenticated user's information."""
 
     return current_user
+
+
+# ==============================================================================
+# Demo RBAC Endpoints (Demonstrating Role-Based Access Control)
+# ==============================================================================
+
+
+@router.get(
+    "/candidate-only",
+    status_code=status.HTTP_200_OK,
+    tags=["Authentication Demo"],
+)
+def candidate_only_demo(
+    current_user: User = Depends(require_roles("candidate")),
+):
+    """Demo endpoint restricted to candidates only."""
+    return {
+        "message": "Welcome candidate",
+        "user_id": current_user.id,
+        "role": current_user.role,
+    }
+
+
+@router.get(
+    "/recruiter-only",
+    status_code=status.HTTP_200_OK,
+    tags=["Authentication Demo"],
+)
+def recruiter_only_demo(
+    current_user: User = Depends(require_roles("recruiter")),
+):
+    """Demo endpoint restricted to recruiters only."""
+    return {
+        "message": "Welcome recruiter",
+        "user_id": current_user.id,
+        "role": current_user.role,
+    }
+
+
+@router.get(
+    "/admin-only",
+    status_code=status.HTTP_200_OK,
+    tags=["Authentication Demo"],
+)
+def admin_only_demo(
+    current_user: User = Depends(require_roles("admin")),
+):
+    """Demo endpoint restricted to system administrators only."""
+    return {
+        "message": "Welcome admin",
+        "user_id": current_user.id,
+        "role": current_user.role,
+    }

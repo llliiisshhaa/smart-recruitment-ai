@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     )
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=30,
+        default=60,
         description="JWT access token lifetime in minutes",
     )
 

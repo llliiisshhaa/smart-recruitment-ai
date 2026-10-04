@@ -22,6 +22,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 def create_access_token(
     user_id: int,
+    role: str | None = None,
     expires_minutes: int | None = None,
 ) -> str:
     """Create a JWT access token for an authenticated user."""
@@ -35,6 +36,9 @@ def create_access_token(
         "sub": str(user_id),
         "exp": expire,
     }
+
+    if role is not None:
+        payload["role"] = role
 
     return jwt.encode(
         payload,
