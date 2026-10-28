@@ -1,3 +1,4 @@
+
 """
 Configuration module for the Smart Recruitment System backend.
 Loads settings from environment variables and .env files using pydantic-settings.
@@ -48,6 +49,17 @@ class Settings(BaseSettings):
     FRONTEND_ORIGIN: str = Field(
         default="http://localhost:5173",
         description="Allowed frontend origin for Cross-Origin Resource Sharing (CORS)",
+    )
+
+    UPLOAD_DIR: str = Field(
+        default="uploads/resumes",
+        description="Directory used to store uploaded resume files",
+    )
+
+    MAX_UPLOAD_MB: int = Field(
+        default=5,
+        ge=1,
+        description="Maximum permitted resume upload size in MB",
     )
 
     model_config = SettingsConfigDict(

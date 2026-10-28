@@ -178,14 +178,68 @@ The dashboard displays the live health state of the FastAPI backend and database
 With your Python virtual environment activated, run `pytest` from the project root:
 
 ```bash
-pytest tests/test_health.py -v
+pytest -v
+```
+
+Or target the authentication test suite specifically:
+
+```bash
+pytest tests/test_auth.py -v
 ```
 
 Expected output:
 ```text
-tests/test_health.py::test_health_endpoint_returns_200 PASSED
-tests/test_health.py::test_root_endpoint PASSED
+tests/test_auth.py::test_successful_register_candidate PASSED            [  5%]
+tests/test_auth.py::test_successful_register_recruiter PASSED            [ 10%]
+tests/test_auth.py::test_duplicate_email_rejected_with_409 PASSED        [ 15%]
+tests/test_auth.py::test_weak_password_rejected PASSED                   [ 20%]
+tests/test_auth.py::test_role_admin_rejected_on_public_registration PASSED [ 25%]
+tests/test_auth.py::test_empty_full_name_rejected PASSED                 [ 30%]
+tests/test_auth.py::test_successful_login_returns_token PASSED           [ 35%]
+tests/test_auth.py::test_wrong_password_returns_401_generic_message PASSED [ 40%]
+tests/test_auth.py::test_unknown_email_returns_401_generic_message PASSED [ 45%]
+tests/test_auth.py::test_inactive_user_cannot_login PASSED               [ 50%]
+tests/test_auth.py::test_get_me_with_valid_token PASSED                  [ 55%]
+tests/test_auth.py::test_get_me_without_token_returns_401 PASSED         [ 60%]
+tests/test_auth.py::test_get_me_with_expired_token_returns_401 PASSED    [ 65%]
+tests/test_auth.py::test_get_me_with_tampered_token_returns_401 PASSED   [ 70%]
+tests/test_auth.py::test_candidate_calling_recruiter_endpoint_returns_403 PASSED [ 75%]
+tests/test_auth.py::test_candidate_calling_admin_endpoint_returns_403 PASSED [ 80%]
+tests/test_auth.py::test_recruiter_calling_recruiter_endpoint_returns_200 PASSED [ 85%]
+tests/test_auth.py::test_admin_calling_admin_endpoint_returns_200 PASSED [ 90%]
+tests/test_auth.py::test_audit_rows_created_for_register_and_login PASSED [ 95%]
+tests/test_auth.py::test_response_and_database_never_contain_plaintext_password PASSED [100%]
 ```
+
+---
+
+## Authentication & Authorization
+
+The system provides a hardened, role-based authentication and authorization mechanism built on FastAPI, Pydantic, Argon2 password hashing, and PyJWT.
+
+### User Roles
+- **candidate**: Job applicant; profile includes contact details, headline, and GDPR/AI consent timestamp.
+- **recruiter**: Hiring manager; profile includes company information and job posting access.
+- **admin**: System administrator; provisioned securely via CLI/environment variables.
+
+### Endpoints
+| Method | Path | Access | Description |
+|---|---|---|---|
+| `POST` | `/auth/register` | Public | Register new candidate or recruiter. Passwords must be >= 8 chars with 1 letter & 1 digit. Automatically creates 1:1 profile extension row. |
+| `POST` | `/auth/login` | Public | Authenticates user; returns generic 401 on bad credentials; blocks inactive users; returns JWT. |
+| `GET` | `/auth/me` | Authenticated | Returns current authenticated user profile (`id`, `email`, `full_name`, `role`, `is_active`, `created_at`). |
+| `GET` | `/auth/candidate-only` | `candidate` | Demo RBAC endpoint for candidate role. |
+| `GET` | `/auth/recruiter-only` | `recruiter` | Demo RBAC endpoint for recruiter role. |
+| `GET` | `/auth/admin-only` | `admin` | Demo RBAC endpoint for admin role. |
+
+### Provisioning Administrator Accounts
+Admin self-registration is strictly blocked on public endpoints. Admins are provisioned safely and idempotently via CLI:
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=AdminStrongPassword123 python backend/scripts/create_admin.py
+```
+
+### Audit Logging
+All critical authentication operations (`USER_REGISTERED`, `LOGIN_SUCCESS`, `LOGIN_FAILED`) are logged into the `audit_logs` table via `app.services.audit.log_event`. Failed logins log the attempted email and never store passwords.
 
 ---
 
@@ -213,7 +267,7 @@ The endpoint returns HTTP 200 in both cases and **will never crash** if PostgreS
 ## Roadmap
 
 - [x] **Phase 1**: Project skeleton, health check endpoint, React + Tailwind dashboard
-- [ ] **Phase 2**: User authentication (JWT) & PostgreSQL SQLAlchemy data models
+- [x] **Phase 2**: User authentication (JWT), RBAC, audit logging & PostgreSQL SQLAlchemy data models
 - [ ] **Phase 3**: Resume parsing service (PDF/DOCX) & Gemini AI skill extraction
 - [ ] **Phase 4**: Virtual interview engine (adaptive questions & speech-to-text)
 - [ ] **Phase 5**: Candidate evaluation scoring & PDF recruiter report generation
