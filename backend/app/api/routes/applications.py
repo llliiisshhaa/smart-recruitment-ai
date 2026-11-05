@@ -4,6 +4,7 @@ Provides candidate application status tracking, recruiter applicant dossier insp
 resume downloading, and recruiter evaluation reviews.
 """
 
+import copy
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,6 +21,7 @@ from app.schemas.applications import (
     ApplicantDetailResponse,
     CandidateApplicationItem,
     ResumeMetaResponse,
+    ResumeSkillDetail,
     ReviewCreate,
     ReviewResponse,
 )
@@ -114,18 +116,52 @@ def get_applicant_detail(
     if app_record.resume:
         resume_obj = app_record.resume
         extracted_skills = None
+        skills_detail: List[ResumeSkillDetail] = []
+
+        # Build map of contextual support from parsed_json if present
+        context_support_map = {}
+        if isinstance(resume_obj.parsed_json, dict):
+            for sk in resume_obj.parsed_json.get("skills", []):
+                if isinstance(sk, dict) and "name" in sk:
+                    context_support_map[sk["name"].lower()] = sk.get("supported_by_context")
+
         if resume_obj.resume_skills:
             extracted_skills = [
                 rs.skill.name for rs in resume_obj.resume_skills if rs.skill
             ]
+            for rs in resume_obj.resume_skills:
+                if rs.skill:
+                    sk_name = rs.skill.name
+                    skills_detail.append(
+                        ResumeSkillDetail(
+                            name=sk_name,
+                            category=rs.skill.category,
+                            evidence_text=rs.evidence_text,
+                            supported_by_context=context_support_map.get(sk_name.lower()),
+                        )
+                    )
+
+        # Enforce contact privacy inside parsed_json when reveal_contact is False
+        safe_parsed_json = None
+        if isinstance(resume_obj.parsed_json, dict):
+            safe_parsed_json = copy.deepcopy(resume_obj.parsed_json)
+            if not reveal_contact and "contact" in safe_parsed_json:
+                safe_parsed_json["contact"] = {
+                    "name": None,
+                    "email": None,
+                    "phone": None,
+                    "linkedin": None,
+                    "github": None,
+                }
 
         resume_meta = ResumeMetaResponse(
             id=resume_obj.id,
             original_filename=resume_obj.original_filename,
             parse_status=resume_obj.parse_status,
             created_at=resume_obj.created_at,
-            parsed_json=resume_obj.parsed_json,
+            parsed_json=safe_parsed_json,
             extracted_skills=extracted_skills,
+            skills=skills_detail if skills_detail else None,
         )
 
     # Chronologically ordered reviews

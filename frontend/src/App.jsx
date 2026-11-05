@@ -10,6 +10,8 @@ import { RegisterPage } from './pages/RegisterPage.jsx';
 import { CandidateDashboard } from './pages/CandidateDashboard.jsx';
 import { CandidateProfile } from './pages/CandidateProfile.jsx';
 import { CandidateResumes } from './pages/CandidateResumes.jsx';
+import { RecruiterDashboard } from './pages/RecruiterDashboard.jsx';
+import { RecruiterJobs } from './pages/RecruiterJobs.jsx';
 import { NotFoundPage } from './pages/NotFoundPage.jsx';
 
 export default function App() {
@@ -27,11 +29,19 @@ export default function App() {
           </Route>
 
           {/* Protected Candidate Routes */}
-          <Route element={<ProtectedRoute />}>
+          <Route element={<ProtectedRoute allowedRoles={['candidate']} />}>
             <Route path="/candidate" element={<AppLayout />}>
               <Route index element={<CandidateDashboard />} />
               <Route path="profile" element={<CandidateProfile />} />
               <Route path="resumes" element={<CandidateResumes />} />
+            </Route>
+          </Route>
+
+          {/* Protected Recruiter Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['recruiter']} />}>
+            <Route path="/recruiter" element={<AppLayout />}>
+              <Route index element={<RecruiterDashboard />} />
+              <Route path="jobs" element={<RecruiterJobs />} />
             </Route>
           </Route>
 

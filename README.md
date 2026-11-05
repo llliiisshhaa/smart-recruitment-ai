@@ -7,9 +7,9 @@
 ## Tech Stack
 
 - **Backend**: FastAPI (Python 3.11+), SQLAlchemy 2.0, PostgreSQL, Pydantic-Settings, Uvicorn
-- **AI Engine (Upcoming)**: Google Gemini API
+- **Resume Parser (Stage 8)**: Offline deterministic NLP parser (pdfplumber, python-docx, spaCy `en_core_web_sm`)
 - **Frontend**: React 19, Vite, Tailwind CSS v4
-- **Testing**: Pytest, HTTPX, FastAPI TestClient
+- **Testing**: Pytest, HTTPX, ReportLab, FastAPI TestClient
 
 ---
 
@@ -24,37 +24,39 @@ smart-recruitment-ai/
 │
 ├── backend/                 # FastAPI REST API backend
 │   ├── requirements.txt     # Python dependencies
+│   ├── scripts/             # Data seeding and admin provisioning
+│   ├── tests/               # Automated test suites
 │   └── app/
 │       ├── __init__.py
 │       ├── config.py        # Settings loaded via pydantic-settings
 │       ├── database.py      # SQLAlchemy engine, SessionLocal, Base, get_db
 │       ├── main.py          # FastAPI app, CORS middleware, /health endpoint
-│       └── routers/
-│           └── __init__.py  # Modular route handlers (auth, interviews, resumes)
+│       ├── api/
+│       │   ├── auth.py      # Authentication & RBAC routes
+│       │   └── routes/      # Modular route handlers (resumes, jobs, applications)
+│       ├── models/          # SQLAlchemy ORM models (User, Resume, Skill, Job, etc.)
+│       ├── schemas/         # Pydantic schemas
+│       ├── services/        # Resilient business services (audit logging)
+│       └── ai/              # Non-LLM deterministic AI engine
+│           ├── data/
+│           │   └── skill_aliases.json # 60+ alias taxonomy mappings
+│           └── services/
+│               └── resume_parser/     # Modular extraction, cleaning, sections, entities, skills
 │
-├── ai/                      # AI orchestration and business logic
-│   ├── prompts/
-│   │   └── __init__.py      # Prompt templates for Gemini AI
-│   ├── services/
-│   │   └── __init__.py      # Core AI interview, resume parsing, scoring logic
-│   └── validators/
-│       └── __init__.py      # AI output schemas and hallucination guards
-│
-├── frontend/                # React (Vite) + Tailwind CSS application
+├── frontend/                # React 19 (Vite) + Tailwind CSS application
 │   ├── .env.example         # Template for frontend environment variables
 │   ├── index.html           # HTML entrypoint
 │   ├── package.json         # Node.js dependencies and scripts
 │   ├── vite.config.js       # Vite configuration with Tailwind CSS plugin
 │   └── src/
-│       ├── App.jsx          # Dashboard with live /health status monitor
-│       ├── index.css        # Tailwind CSS imports & global styles
-│       └── main.jsx         # React DOM mounting
+│       ├── App.jsx          # Router & application shell
+│       ├── api/             # Axios client & route API modules
+│       ├── pages/           # Candidate & Recruiter views
+│       └── components/      # UI components (dossier modal, status badges, navbar)
 │
 ├── database/                # Database migrations (Alembic) and SQL schemas (.gitkeep)
 ├── docs/                    # Project reports, diagrams, API specifications (.gitkeep)
-├── sample_data/             # Test resumes (PDF/DOCX) and mock job descriptions (.gitkeep)
-└── tests/
-    └── test_health.py       # Automated tests verifying /health endpoint
+└── sample_data/             # Test resumes (PDF/DOCX) and mock job descriptions (.gitkeep)
 ```
 
 ---
@@ -71,13 +73,12 @@ Follow these step-by-step instructions to set up and run the project locally.
 
 ---
 
-### 2. Backend Setup
+### 2. Backend Setup (Windows PowerShell)
 
-Open a terminal at the project root (`smart-recruitment-ai`):
+Open a PowerShell terminal at the project root (`smart-recruitment-ai`):
 
 #### Step 2.1: Create & Activate Virtual Environment
 
-**On Windows (PowerShell):**
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -88,41 +89,51 @@ python -m venv .venv
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-**On macOS / Linux:**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
 #### Step 2.2: Install Backend Dependencies
 
-```bash
-pip install -r backend/requirements.txt
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
 ```
 
-#### Step 2.3: Configure Environment Variables
+#### Step 2.3: Download or Install the spaCy Model
+
+```powershell
+.\.venv\Scripts\python.exe -m spacy download en_core_web_sm
+```
+
+#### Step 2.4: Verify Installed Packages
+
+```powershell
+.\.venv\Scripts\python.exe -m pip list
+```
+
+Verify that `pdfplumber`, `python-docx`, `spacy`, `en_core_web_sm`, `reportlab`, and `fastapi` are present.
+
+#### Step 2.5: Configure Environment Variables
 
 Copy `.env.example` to `.env` in the project root:
 
-**On Windows (PowerShell):**
 ```powershell
 Copy-Item .env.example .env
 ```
 
-**On macOS / Linux:**
-```bash
-cp .env.example .env
+*(Edit `.env` to update your database credentials when ready)*.
+
+#### Step 2.6: Seed Canonical Skills Taxonomy (Optional / Offline)
+
+```powershell
+cd backend
+..\.venv\Scripts\python.exe scripts/seed_data.py
+cd ..
 ```
 
-*(Edit `.env` to update your database credentials or Gemini API key when ready).*
+#### Step 2.7: Start the FastAPI Server
 
-#### Step 2.4: Start the FastAPI Server
+Navigate to the `backend` folder and start Uvicorn on port `8001`:
 
-Navigate to the `backend` folder and start Uvicorn:
-
-```bash
+```powershell
 cd backend
-uvicorn app.main:app --reload --port 8001
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
 ```
 
 The backend will be available at:
@@ -139,77 +150,79 @@ Open a second terminal window at the project root (`smart-recruitment-ai`):
 
 #### Step 3.1: Navigate to Frontend Directory & Install Dependencies
 
-```bash
+```powershell
 cd frontend
 npm install
 ```
 
 #### Step 3.2: Configure Frontend Environment (Optional)
 
-Copy `frontend/.env.example` to `frontend/.env`:
-
-**On Windows (PowerShell):**
 ```powershell
 Copy-Item .env.example .env
 ```
 
-**On macOS / Linux:**
-```bash
-cp .env.example .env
-```
-
 *(By default, it connects to `http://localhost:8001`)*.
 
-#### Step 3.3: Start Vite Development Server
+#### Step 3.3: Verify Frontend Code Quality
 
-```bash
+```powershell
+npm run lint
+npm run build
+```
+
+#### Step 3.4: Start Vite Development Server
+
+```powershell
 npm run dev
 ```
 
 Open your browser at:
 - **Frontend Application**: [http://localhost:5173/](http://localhost:5173/)
 
-The dashboard displays the live health state of the FastAPI backend and database connectivity.
-
 ---
 
 ### 4. Running Automated Tests
 
-With your Python virtual environment activated, run `pytest` from the project root:
+Run tests using the project's root virtual environment:
 
-```bash
-pytest -v
+#### Run Parser Unit and API Tests Specifically:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend\tests\test_resume_parser_unit.py backend\tests\test_resume_parser_api.py -v
 ```
 
-Or target the authentication test suite specifically:
+#### Run the Complete Backend Regression Suite:
 
-```bash
-pytest tests/test_auth.py -v
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend\tests -q
 ```
 
 Expected output:
 ```text
-tests/test_auth.py::test_successful_register_candidate PASSED            [  5%]
-tests/test_auth.py::test_successful_register_recruiter PASSED            [ 10%]
-tests/test_auth.py::test_duplicate_email_rejected_with_409 PASSED        [ 15%]
-tests/test_auth.py::test_weak_password_rejected PASSED                   [ 20%]
-tests/test_auth.py::test_role_admin_rejected_on_public_registration PASSED [ 25%]
-tests/test_auth.py::test_empty_full_name_rejected PASSED                 [ 30%]
-tests/test_auth.py::test_successful_login_returns_token PASSED           [ 35%]
-tests/test_auth.py::test_wrong_password_returns_401_generic_message PASSED [ 40%]
-tests/test_auth.py::test_unknown_email_returns_401_generic_message PASSED [ 45%]
-tests/test_auth.py::test_inactive_user_cannot_login PASSED               [ 50%]
-tests/test_auth.py::test_get_me_with_valid_token PASSED                  [ 55%]
-tests/test_auth.py::test_get_me_without_token_returns_401 PASSED         [ 60%]
-tests/test_auth.py::test_get_me_with_expired_token_returns_401 PASSED    [ 65%]
-tests/test_auth.py::test_get_me_with_tampered_token_returns_401 PASSED   [ 70%]
-tests/test_auth.py::test_candidate_calling_recruiter_endpoint_returns_403 PASSED [ 75%]
-tests/test_auth.py::test_candidate_calling_admin_endpoint_returns_403 PASSED [ 80%]
-tests/test_auth.py::test_recruiter_calling_recruiter_endpoint_returns_200 PASSED [ 85%]
-tests/test_auth.py::test_admin_calling_admin_endpoint_returns_200 PASSED [ 90%]
-tests/test_auth.py::test_audit_rows_created_for_register_and_login PASSED [ 95%]
-tests/test_auth.py::test_response_and_database_never_contain_plaintext_password PASSED [100%]
+80 passed, 5 warnings in 9.64s
 ```
+
+---
+
+## Resume Parsing Engine (Stage 8)
+
+The system features a **100% offline, deterministic, non-LLM resume parsing engine** that extracts structured candidate information, matches skills to a canonical database taxonomy, extracts verbatim evidence sentences, and determines contextual skill support without calling external AI APIs.
+
+### Architecture
+- **`extract.py`**: Reads PDF (via `pdfplumber`) and DOCX (via `python-docx` including tables). Enforces a strict 10-page ceiling and rejects empty or image-only scanned files with `"no extractable text"`.
+- **`clean.py`**: Normalizes Unicode, bullets, and line wrapping while strictly preserving technical terms (`C++`, `C#`, `.NET`, `Node.js`, `Next.js`, `CI/CD`).
+- **`sections.py`**: Heading-based section detector mapping variations into canonical categories (`summary`, `education`, `skills`, `projects`, `experience`, `certifications`, `languages`, `achievements`) while preserving header content.
+- **`entities.py`**: Regex and spaCy NER extraction of contacts (email, phone, LinkedIn, GitHub, name), education history (degrees, institutions, CGPA, graduation years), work experience, projects, and certifications.
+- **`skills.py`**: Canonical skill matcher using `skill_aliases.json` (60+ aliases) and the database `Skill` taxonomy. Assigns `supported_by_context = true` if skills appear in project or experience sections.
+- **`parser.py`**: Orchestrator returning structured data and cleaned text.
+
+### Privacy Decision
+> **Anti-Bias Privacy Guarantee**: Sensitive demographic attributes—including gender, date of birth, age, marital status, religion, caste, nationality, and photographs—are **strictly excluded from extraction and storage** to prevent discrimination in candidate ranking.
+
+### Recruiter Privacy Boundaries
+- Recruiters only access parsed resume data through the authorized job applicant endpoint: `GET /applications/{application_id}`.
+- If `reveal_contact=False`, candidate contact details (including those inside `parsed_json`) are automatically redacted before transmission.
+- `Resume.raw_text` and physical storage paths are **never exposed to recruiters**.
 
 ---
 
@@ -218,49 +231,21 @@ tests/test_auth.py::test_response_and_database_never_contain_plaintext_password 
 The system provides a hardened, role-based authentication and authorization mechanism built on FastAPI, Pydantic, Argon2 password hashing, and PyJWT.
 
 ### User Roles
-- **candidate**: Job applicant; profile includes contact details, headline, and GDPR/AI consent timestamp.
-- **recruiter**: Hiring manager; profile includes company information and job posting access.
+- **candidate**: Job applicant; profile includes contact details, headline, resume management, and GDPR/AI consent timestamp.
+- **recruiter**: Hiring manager; profile includes company information, job posting access, and applicant evaluation dossiers.
 - **admin**: System administrator; provisioned securely via CLI/environment variables.
 
 ### Endpoints
 | Method | Path | Access | Description |
 |---|---|---|---|
-| `POST` | `/auth/register` | Public | Register new candidate or recruiter. Passwords must be >= 8 chars with 1 letter & 1 digit. Automatically creates 1:1 profile extension row. |
-| `POST` | `/auth/login` | Public | Authenticates user; returns generic 401 on bad credentials; blocks inactive users; returns JWT. |
-| `GET` | `/auth/me` | Authenticated | Returns current authenticated user profile (`id`, `email`, `full_name`, `role`, `is_active`, `created_at`). |
-| `GET` | `/auth/candidate-only` | `candidate` | Demo RBAC endpoint for candidate role. |
-| `GET` | `/auth/recruiter-only` | `recruiter` | Demo RBAC endpoint for recruiter role. |
-| `GET` | `/auth/admin-only` | `admin` | Demo RBAC endpoint for admin role. |
-
-### Provisioning Administrator Accounts
-Admin self-registration is strictly blocked on public endpoints. Admins are provisioned safely and idempotently via CLI:
-```bash
-ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=AdminStrongPassword123 python backend/scripts/create_admin.py
-```
-
-### Audit Logging
-All critical authentication operations (`USER_REGISTERED`, `LOGIN_SUCCESS`, `LOGIN_FAILED`) are logged into the `audit_logs` table via `app.services.audit.log_event`. Failed logins log the attempted email and never store passwords.
-
----
-
-## Health Check Behavior
-
-The `GET /health` endpoint checks both the FastAPI server and the database:
-- When the database is running and reachable:
-  ```json
-  {
-    "status": "ok",
-    "database": "connected"
-  }
-  ```
-- When the database is offline or not yet configured:
-  ```json
-  {
-    "status": "ok",
-    "database": "unavailable"
-  }
-  ```
-The endpoint returns HTTP 200 in both cases and **will never crash** if PostgreSQL is down.
+| `POST` | `/auth/register` | Public | Register new candidate or recruiter. |
+| `POST` | `/auth/login` | Public | Authenticates user; returns JWT. |
+| `GET` | `/auth/me` | Authenticated | Returns current authenticated user profile. |
+| `POST` | `/resumes` | Candidate | Upload PDF or DOCX resume (max 5 MB). |
+| `GET` | `/resumes` | Candidate | List candidate's uploaded resumes. |
+| `POST` | `/resumes/{id}/parse` | Candidate (Owner) | Synchronously parse resume into structured JSON and save skills. |
+| `GET` | `/resumes/{id}/parsed` | Candidate (Owner) | Retrieve parsed structured resume dossier and skills. |
+| `GET` | `/applications/{id}` | Recruiter (Job Owner) | View applicant dossier with privacy-controlled contact reveal and skill evidence. |
 
 ---
 
@@ -268,6 +253,6 @@ The endpoint returns HTTP 200 in both cases and **will never crash** if PostgreS
 
 - [x] **Phase 1**: Project skeleton, health check endpoint, React + Tailwind dashboard
 - [x] **Phase 2**: User authentication (JWT), RBAC, audit logging & PostgreSQL SQLAlchemy data models
-- [ ] **Phase 3**: Resume parsing service (PDF/DOCX) & Gemini AI skill extraction
+- [x] **Phase 3 (Stage 8)**: Non-LLM offline deterministic resume parser (PDF/DOCX), skill evidence & recruiter privacy controls
 - [ ] **Phase 4**: Virtual interview engine (adaptive questions & speech-to-text)
 - [ ] **Phase 5**: Candidate evaluation scoring & PDF recruiter report generation

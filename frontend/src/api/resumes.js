@@ -55,4 +55,22 @@ export const resumesApi = {
     const response = await apiClient.delete(`/resumes/${id}`);
     return response.data;
   },
+
+  /**
+   * Trigger non-LLM parsing for an uploaded resume.
+   * @param {number} id
+   */
+  async parseResume(id) {
+    const response = await apiClient.post(`/resumes/${id}/parse`);
+    return response.data;
+  },
+
+  /**
+   * Get structured parsed data and skills for a resume.
+   * @param {number} id
+   */
+  async getParsedResume(id) {
+    const response = await apiClient.get(`/resumes/${id}/parsed`);
+    return response.data;
+  },
 };

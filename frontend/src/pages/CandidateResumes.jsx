@@ -5,6 +5,7 @@ import { resumesApi } from "../api/resumes.js";
 import StatusBadge from "../components/StatusBadge";
 import { ConfirmModal } from "../components/ConfirmModal.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
+import { ParsedResumeModal } from "../components/ParsedResumeModal.jsx";
 import { extractErrorMessage } from "../api/client.js";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -34,7 +35,14 @@ export function CandidateResumes() {
   // Download state tracker
   const [downloadingId, setDownloadingId] = useState(null);
 
-  // Refresh helper for after upload or delete operations
+  // Parsing and inspection state
+  const [parsingId, setParsingId] = useState(null);
+  const [viewingResume, setViewingResume] = useState(null);
+  const [parsedData, setParsedData] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState(null);
+
+  // Refresh helper for after upload, parse, or delete operations
   const refreshData = async () => {
     try {
       const [resumesData, profileData] = await Promise.all([
@@ -235,6 +243,50 @@ export function CandidateResumes() {
     }
   };
 
+  // Parse resume handler
+  const handleParseResume = async (resumeId) => {
+    setParsingId(resumeId);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const result = await resumesApi.parseResume(resumeId);
+      setSuccessMessage("Resume parsed successfully!");
+      await refreshData();
+      const updatedResume = resumes.find((r) => r.id === resumeId) || {
+        id: resumeId,
+        parse_status: "parsed",
+      };
+      setViewingResume({ ...updatedResume, parse_status: "parsed" });
+      setParsedData(result);
+      setModalError(null);
+    } catch (err) {
+      setError(extractErrorMessage(err, "Failed to parse resume."));
+      await refreshData();
+    } finally {
+      setParsingId(null);
+    }
+  };
+
+  // View parsed dossier
+  const handleViewParsed = async (resume) => {
+    setViewingResume(resume);
+    setModalLoading(true);
+    setModalError(null);
+    setParsedData(null);
+
+    try {
+      const data = await resumesApi.getParsedResume(resume.id);
+      setParsedData(data);
+    } catch (err) {
+      setModalError(
+        extractErrorMessage(err, "Failed to load parsed resume details."),
+      );
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner text="Loading resume documents..." />;
   }
@@ -247,7 +299,7 @@ export function CandidateResumes() {
             Resume Management
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Upload, inspect, and manage your CV documents (up to {MAX_RESUMES}{" "}
+            Upload, inspect, and parse your CV documents (up to {MAX_RESUMES}{" "}
             files).
           </p>
         </div>
@@ -511,15 +563,87 @@ export function CandidateResumes() {
                         {new Date(resume.created_at).toLocaleDateString()}
                       </span>
                       <span>&bull;</span>
-                      <StatusBadge
-                        status={resume.parse_status}
-                        type="parse_status"
-                      />
+                      <StatusBadge status={resume.parse_status} />
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                  {/* Parse / Retry / View Dossier Button */}
+                  {resume.parse_status === "parsed" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleViewParsed(resume)}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white border border-indigo-500/20 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="View Parsed Dossier"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5 text-indigo-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                      <span>View Parsed</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleParseResume(resume.id)}
+                      disabled={parsingId === resume.id}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
+                        resume.parse_status === "failed"
+                          ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20"
+                          : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
+                      }`}
+                      title={
+                        resume.parse_status === "failed"
+                          ? "Retry Parsing"
+                          : "Parse Resume"
+                      }
+                    >
+                      {parsingId === resume.id ? (
+                        <>
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent inline-block" />
+                          <span>Parsing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 10V3L4 14h7v7l9-11h-7z"
+                            />
+                          </svg>
+                          <span>
+                            {resume.parse_status === "failed"
+                              ? "Retry Parse"
+                              : "Parse Resume"}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   {/* Download Button */}
                   <button
                     type="button"
@@ -587,6 +711,21 @@ export function CandidateResumes() {
         isLoading={deleting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setResumeToDelete(null)}
+      />
+
+      {/* Parsed Resume Dossier Modal */}
+      <ParsedResumeModal
+        isOpen={Boolean(viewingResume)}
+        onClose={() => setViewingResume(null)}
+        resume={viewingResume}
+        parsedData={parsedData}
+        isLoading={modalLoading}
+        error={modalError}
+        onRetry={() => {
+          if (viewingResume) {
+            handleParseResume(viewingResume.id);
+          }
+        }}
       />
     </div>
   );

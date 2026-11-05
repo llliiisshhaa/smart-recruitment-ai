@@ -84,6 +84,13 @@ export function HomePage() {
                 >
                   Candidate Portal &rarr;
                 </Link>
+              ) : user?.role === 'recruiter' ? (
+                <Link
+                  to="/recruiter"
+                  className="px-4 py-2 text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 transition-all"
+                >
+                  Recruiter Portal &rarr;
+                </Link>
               ) : (
                 <span className="text-xs text-slate-400 px-3 py-1.5 rounded-lg bg-slate-800">
                   Logged in as {user?.role}
@@ -115,7 +122,7 @@ export function HomePage() {
         <section className="text-center max-w-3xl mx-auto pt-4 pb-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300 mb-5">
             <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></span>
-            Stage 6B Candidate Portal Active
+            Smart Recruitment Active
           </div>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4">
             Smart Recruitment System
@@ -126,21 +133,35 @@ export function HomePage() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/candidate"
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold shadow-xl shadow-indigo-600/25 transition-all flex items-center gap-2"
-            >
-              Candidate Portal
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </Link>
-            <Link
-              to="/register"
-              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium border border-slate-700 transition-colors"
-            >
-              Create Candidate Account
-            </Link>
+            {user?.role === 'recruiter' ? (
+              <Link
+                to="/recruiter"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold shadow-xl shadow-emerald-600/25 transition-all flex items-center gap-2"
+              >
+                Recruiter Portal
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </Link>
+            ) : (
+              <Link
+                to="/candidate"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold shadow-xl shadow-indigo-600/25 transition-all flex items-center gap-2"
+              >
+                Candidate Portal
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </Link>
+            )}
+            {!isAuthenticated && (
+              <Link
+                to="/register"
+                className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium border border-slate-700 transition-colors"
+              >
+                Create Account
+              </Link>
+            )}
           </div>
         </section>
 

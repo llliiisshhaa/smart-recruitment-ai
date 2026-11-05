@@ -72,6 +72,17 @@ class ReviewResponse(BaseModel):
     created_at: datetime
 
 
+class ResumeSkillDetail(BaseModel):
+    """Detailed extracted skill with evidence and context for recruiter review."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    category: Optional[str] = None
+    evidence_text: Optional[str] = None
+    supported_by_context: Optional[bool] = None
+
+
 class ResumeMetaResponse(BaseModel):
     """
     Safe resume metadata view for recruiters.
@@ -86,6 +97,7 @@ class ResumeMetaResponse(BaseModel):
     created_at: datetime
     parsed_json: Optional[Dict[str, Any]] = None
     extracted_skills: Optional[List[str]] = None
+    skills: Optional[List[ResumeSkillDetail]] = None
 
 
 class ApplicantDetailResponse(BaseModel):

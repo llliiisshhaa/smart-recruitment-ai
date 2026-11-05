@@ -30,12 +30,18 @@ export function LoginPage() {
 
     try {
       const user = await login({ email: trimmedEmail, password });
-      if (user.role === 'candidate') {
-        const from = location.state?.from?.pathname || '/candidate';
-        navigate(from, { replace: true });
+      const rawFrom = location.state?.from?.pathname;
+
+      if (user.role === 'recruiter') {
+        // Only allow 'from' if it belongs to recruiter routes to avoid landing on stale candidate URLs
+        const target = rawFrom && rawFrom.startsWith('/recruiter') ? rawFrom : '/recruiter';
+        navigate(target, { replace: true });
+      } else if (user.role === 'candidate') {
+        // Only allow 'from' if it belongs to candidate routes to avoid landing on stale recruiter URLs
+        const target = rawFrom && rawFrom.startsWith('/candidate') ? rawFrom : '/candidate';
+        navigate(target, { replace: true });
       } else {
-        // Logged in as non-candidate
-        setError(`Signed in as ${user.role}. This portal is configured for candidates.`);
+        navigate('/', { replace: true });
       }
     } catch (err) {
       const msg = extractErrorMessage(err, 'Invalid email or password');
@@ -55,7 +61,7 @@ export function LoginPage() {
           <span className="text-xl font-bold tracking-tight text-white">Smart Recruitment</span>
         </Link>
         <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-          Sign in to Candidate Portal
+          Sign in to your account
         </h2>
         <p className="mt-2 text-sm text-slate-400">
           Or{' '}

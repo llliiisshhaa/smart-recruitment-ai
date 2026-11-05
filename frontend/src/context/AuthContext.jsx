@@ -98,6 +98,7 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated: Boolean(user),
     isCandidate: user?.role === 'candidate',
+    isRecruiter: user?.role === 'recruiter',
     login,
     register,
     logout,
