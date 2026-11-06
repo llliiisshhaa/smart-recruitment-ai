@@ -219,3 +219,15 @@ __marimo__/
 
 # Node.js dependencies
 node_modules/
+
+# Smart Recruitment System Project-Specific Ignores
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+uploads/
+reports/
+*.log
+.pytest_cache/
+frontend/dist/
