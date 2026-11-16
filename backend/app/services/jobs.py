@@ -3,14 +3,15 @@ Job management service functions.
 Handles taxonomy validation, response serialization, and job lifecycle transactions.
 """
 
-from typing import List, Set
+from typing import List, Optional, Set
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.job import Job, JobSkill
+from app.models.job import Application, Job, JobSkill
 from app.models.resume import Skill
 from app.models.user import RecruiterProfile
-from app.schemas.jobs import JobResponse, JobSkillResponse
+from app.schemas.jobs import JobResponse, JobSkillResponse, RecruiterJobResponse
 
 
 def validate_skill_ids(db: Session, skill_ids: List[int]) -> None:
@@ -39,8 +40,9 @@ def validate_skill_ids(db: Session, skill_ids: List[int]) -> None:
 
 def build_job_response(job: Job, db: Session) -> JobResponse:
     """
-    Serialize a Job model instance into a safe JobResponse,
+    Serialize a Job model instance into a safe JobResponse (candidate-facing),
     enriching with recruiter company name and skill details.
+    Does not expose application count.
     """
     # Fetch recruiter company name if available
     company_name = None
@@ -82,4 +84,37 @@ def build_job_response(job: Job, db: Session) -> JobResponse:
         created_at=job.created_at,
         company_name=company_name,
         skills=skills_response,
+    )
+
+
+def build_recruiter_job_response(
+    job: Job,
+    db: Session,
+    application_count: Optional[int] = None,
+) -> RecruiterJobResponse:
+    """
+    Serialize a Job model instance into a RecruiterJobResponse,
+    including the accurate application count for the owning recruiter.
+    """
+    if application_count is None:
+        application_count = (
+            db.query(func.count(Application.id))
+            .filter(Application.job_id == job.id)
+            .scalar()
+            or 0
+        )
+
+    base = build_job_response(job, db)
+    return RecruiterJobResponse(
+        id=base.id,
+        recruiter_id=base.recruiter_id,
+        title=base.title,
+        description=base.description,
+        min_experience_years=base.min_experience_years,
+        education=base.education,
+        status=base.status,
+        created_at=base.created_at,
+        company_name=base.company_name,
+        skills=base.skills,
+        application_count=application_count,
     )

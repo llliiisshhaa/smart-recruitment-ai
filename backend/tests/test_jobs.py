@@ -481,3 +481,127 @@ def test_recruiter_can_view_own_closed_job_and_list_mine(job_api):
     assert mine_res.status_code == 200
     mine_ids = [j["id"] for j in mine_res.json()]
     assert job_id in mine_ids
+
+
+def test_recruiter_application_counts_and_candidate_exclusion(job_api):
+    """
+    Test application_count enhancement:
+    - Zero count for job without applications
+    - Accurate application_count for job with multiple applications
+    - Different counts for different jobs
+    - Recruiter isolation
+    - GET /jobs/{id} returns application_count for owning recruiter
+    - Candidate responses (GET /jobs and GET /jobs/{id}) do NOT expose application_count
+    """
+    from app.models.job import Application
+    from app.models.user import User
+
+    client = job_api["client"]
+    session_factory = job_api["session_factory"]
+    skills = job_api["skill_ids"]
+    rec1_id = job_api["user_ids"]["recruiter1"]
+    rec2_id = job_api["user_ids"]["recruiter2"]
+    cand_id = job_api["user_ids"]["candidate"]
+
+    # Recruiter 1 creates Job A and Job B
+    job_api["active_user"]["id"] = rec1_id
+    res_a = client.post(
+        "/jobs",
+        json={
+            "title": "Backend Role A",
+            "description": "Job A description",
+            "min_experience_years": 2,
+            "skills": [{"skill_id": skills["python"], "importance": "required"}],
+        },
+    )
+    assert res_a.status_code == 201
+    job_a_data = res_a.json()
+    job_a_id = job_a_data["id"]
+    assert job_a_data["application_count"] == 0
+
+    res_b = client.post(
+        "/jobs",
+        json={
+            "title": "Frontend Role B",
+            "description": "Job B description",
+            "min_experience_years": 1,
+            "skills": [{"skill_id": skills["react"], "importance": "required"}],
+        },
+    )
+    assert res_b.status_code == 201
+    job_b_id = res_b.json()["id"]
+
+    # Recruiter 2 creates Job X
+    job_api["active_user"]["id"] = rec2_id
+    res_x = client.post(
+        "/jobs",
+        json={
+            "title": "DevOps Role X",
+            "description": "Job X description",
+            "min_experience_years": 3,
+            "skills": [{"skill_id": skills["docker"], "importance": "required"}],
+        },
+    )
+    assert res_x.status_code == 201
+    job_x_id = res_x.json()["id"]
+
+    # Add 2 applications to Job A and 1 application to Job X directly via DB session
+    with session_factory() as db:
+        cand2 = User(
+            email="cand2@test.example",
+            password_hash="hash",
+            full_name="Second Candidate",
+            role="candidate",
+            is_active=True,
+        )
+        db.add(cand2)
+        db.commit()
+
+        app1 = Application(candidate_id=cand_id, job_id=job_a_id, status="applied")
+        app2 = Application(candidate_id=cand2.id, job_id=job_a_id, status="applied")
+        app3 = Application(candidate_id=cand_id, job_id=job_x_id, status="applied")
+        db.add_all([app1, app2, app3])
+        db.commit()
+
+    # Recruiter 1 checks GET /jobs/mine
+    job_api["active_user"]["id"] = rec1_id
+    mine_res = client.get("/jobs/mine")
+    assert mine_res.status_code == 200
+    mine_data = mine_res.json()
+    jobs_map = {j["id"]: j for j in mine_data}
+
+    # Recruiter 1 sees Job A and Job B only (isolation)
+    assert job_a_id in jobs_map
+    assert job_b_id in jobs_map
+    assert job_x_id not in jobs_map
+
+    # Job A has 2 applications, Job B has 0 applications
+    assert jobs_map[job_a_id]["application_count"] == 2
+    assert jobs_map[job_b_id]["application_count"] == 0
+
+    # Recruiter 1 checks GET /jobs/{id}
+    detail_a = client.get(f"/jobs/{job_a_id}")
+    assert detail_a.status_code == 200
+    assert detail_a.json()["application_count"] == 2
+
+    detail_b = client.get(f"/jobs/{job_b_id}")
+    assert detail_b.status_code == 200
+    assert detail_b.json()["application_count"] == 0
+
+    # Recruiter 2 checks GET /jobs/mine
+    job_api["active_user"]["id"] = rec2_id
+    rec2_mine = client.get("/jobs/mine").json()
+    assert len(rec2_mine) == 1
+    assert rec2_mine[0]["id"] == job_x_id
+    assert rec2_mine[0]["application_count"] == 1
+
+    # Candidate accesses GET /jobs and GET /jobs/{job_a_id}
+    job_api["active_user"]["id"] = cand_id
+    cand_browse = client.get("/jobs")
+    assert cand_browse.status_code == 200
+    for item in cand_browse.json()["items"]:
+        assert "application_count" not in item, "Candidate browse must not expose application_count"
+
+    cand_detail = client.get(f"/jobs/{job_a_id}")
+    assert cand_detail.status_code == 200
+    assert "application_count" not in cand_detail.json(), "Candidate job detail must not expose application_count"

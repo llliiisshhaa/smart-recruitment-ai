@@ -96,7 +96,7 @@ class JobStatusUpdate(BaseModel):
 
 
 class JobResponse(BaseModel):
-    """Publicly safe representation of a job opening."""
+    """Publicly safe representation of a job opening (candidate-facing)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -110,3 +110,9 @@ class JobResponse(BaseModel):
     created_at: datetime
     company_name: Optional[str] = None
     skills: List[JobSkillResponse] = []
+
+
+class RecruiterJobResponse(JobResponse):
+    """Enriched job representation for owning recruiters, including application count."""
+
+    application_count: int = 0

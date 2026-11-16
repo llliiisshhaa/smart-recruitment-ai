@@ -4,8 +4,9 @@ Includes recruiter job creation/updating, candidate job searching, application s
 and recruiter applicant listing.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -25,8 +26,13 @@ from app.schemas.jobs import (
     JobResponse,
     JobStatusUpdate,
     JobUpdate,
+    RecruiterJobResponse,
 )
-from app.services.jobs import build_job_response, validate_skill_ids
+from app.services.jobs import (
+    build_job_response,
+    build_recruiter_job_response,
+    validate_skill_ids,
+)
 from app.services.pagination import PaginatedResponse, validate_pagination_params
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
@@ -34,14 +40,14 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 @router.post(
     "",
-    response_model=JobResponse,
+    response_model=RecruiterJobResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_job(
     job_in: JobCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("recruiter")),
-) -> JobResponse:
+) -> RecruiterJobResponse:
     """
     Create a new job posting with associated skills.
     All skills are validated against the taxonomy and stored atomically.
@@ -88,26 +94,43 @@ def create_job(
             detail="Could not create job posting.",
         )
 
-    return build_job_response(job, db)
+    return build_recruiter_job_response(job, db, application_count=0)
 
 
-@router.get("/mine", response_model=List[JobResponse])
+@router.get("/mine", response_model=List[RecruiterJobResponse])
 def get_my_jobs(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("recruiter")),
-) -> List[JobResponse]:
+) -> List[RecruiterJobResponse]:
     """
-    List all job openings created by the authenticated recruiter.
+    List all job openings created by the authenticated recruiter with application counts.
     Returns deterministic order by creation date.
+    Avoids N+1 queries by joining aggregated application counts.
     """
-    jobs = (
-        db.query(Job)
+    app_count_subq = (
+        select(
+            Application.job_id,
+            func.count(Application.id).label("app_count"),
+        )
+        .group_by(Application.job_id)
+        .subquery()
+    )
+
+    rows = (
+        db.query(
+            Job,
+            func.coalesce(app_count_subq.c.app_count, 0).label("app_count"),
+        )
+        .outerjoin(app_count_subq, Job.id == app_count_subq.c.job_id)
         .filter(Job.recruiter_id == current_user.id)
         .order_by(Job.created_at.desc(), Job.id.desc())
         .all()
     )
 
-    return [build_job_response(j, db) for j in jobs]
+    return [
+        build_recruiter_job_response(job, db, application_count=app_count)
+        for job, app_count in rows
+    ]
 
 
 @router.get("", response_model=PaginatedResponse[JobResponse])
@@ -121,6 +144,7 @@ def browse_jobs(
     """
     Candidate endpoint to browse available open jobs.
     Supports title keyword search and pagination.
+    Candidate responses use JobResponse without exposing application counts.
     """
     clamped_limit, safe_offset = validate_pagination_params(limit, offset, max_limit=50)
 
@@ -148,16 +172,16 @@ def browse_jobs(
     )
 
 
-@router.get("/{job_id}", response_model=JobResponse)
+@router.get("/{job_id}", response_model=Union[RecruiterJobResponse, JobResponse])
 def get_job_by_id(
     job_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> JobResponse:
+) -> Union[RecruiterJobResponse, JobResponse]:
     """
     Retrieve job posting details.
-    Candidates can view open jobs only.
-    Recruiters can view their own jobs (even if closed).
+    Candidates can view open jobs only (returns JobResponse without application_count).
+    Recruiters can view their own jobs (returns RecruiterJobResponse with application_count).
     Returns 404 for unauthorized recruiter access or closed jobs requested by candidates.
     """
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -174,12 +198,14 @@ def get_job_by_id(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Job not found.",
             )
+        return build_job_response(job, db)
     elif current_user.role == "recruiter":
         if job.recruiter_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Job not found.",
             )
+        return build_recruiter_job_response(job, db)
     elif current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -189,13 +215,13 @@ def get_job_by_id(
     return build_job_response(job, db)
 
 
-@router.put("/{job_id}", response_model=JobResponse)
+@router.put("/{job_id}", response_model=RecruiterJobResponse)
 def update_job(
     job_id: int,
     job_in: JobUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("recruiter")),
-) -> JobResponse:
+) -> RecruiterJobResponse:
     """
     Update an owned job posting and replace its required skills transactionally.
     Returns 404 if the job does not exist or belongs to another recruiter.
@@ -252,16 +278,16 @@ def update_job(
             detail="Could not update job posting.",
         )
 
-    return build_job_response(job, db)
+    return build_recruiter_job_response(job, db)
 
 
-@router.patch("/{job_id}/status", response_model=JobResponse)
+@router.patch("/{job_id}/status", response_model=RecruiterJobResponse)
 def update_job_status(
     job_id: int,
     status_in: JobStatusUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("recruiter")),
-) -> JobResponse:
+) -> RecruiterJobResponse:
     """
     Open or close a job opening owned by the authenticated recruiter.
     Returns 404 if the job belongs to another recruiter.
@@ -300,7 +326,7 @@ def update_job_status(
             detail="Could not update job status.",
         )
 
-    return build_job_response(job, db)
+    return build_recruiter_job_response(job, db)
 
 
 @router.post(

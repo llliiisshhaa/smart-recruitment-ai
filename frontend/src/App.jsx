@@ -42,6 +42,7 @@ export default function App() {
             <Route path="/recruiter" element={<AppLayout />}>
               <Route index element={<RecruiterDashboard />} />
               <Route path="jobs" element={<RecruiterJobs />} />
+              <Route path="jobs/:jobId/applications" element={<div className="p-8 text-center text-slate-400">Applicant Listing coming in Phase 6</div>} />
             </Route>
           </Route>
 
