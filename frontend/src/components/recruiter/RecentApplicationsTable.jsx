@@ -134,10 +134,10 @@ export function RecentApplicationsTable({ applications = [] }) {
                     {/* Action link */}
                     <td className="py-3.5 px-5 md:px-6 text-right whitespace-nowrap">
                       <Link
-                        to="/recruiter/jobs"
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-all"
+                        to={`/recruiter/applications/${app.application_id}`}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 transition-all"
                       >
-                        <span>View Role</span>
+                        <span>Review Dossier</span>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
