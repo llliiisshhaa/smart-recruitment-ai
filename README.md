@@ -243,9 +243,42 @@ The system provides a hardened, role-based authentication and authorization mech
 | `GET` | `/auth/me` | Authenticated | Returns current authenticated user profile. |
 | `POST` | `/resumes` | Candidate | Upload PDF or DOCX resume (max 5 MB). |
 | `GET` | `/resumes` | Candidate | List candidate's uploaded resumes. |
+| `DELETE` | `/resumes/{id}` | Candidate (Owner) | Delete resume (blocked with 409 if attached to an application). |
 | `POST` | `/resumes/{id}/parse` | Candidate (Owner) | Synchronously parse resume into structured JSON and save skills. |
 | `GET` | `/resumes/{id}/parsed` | Candidate (Owner) | Retrieve parsed structured resume dossier and skills. |
+| `GET` | `/jobs` | Candidate | Browse open job postings with keyword search and pagination. |
+| `GET` | `/jobs/{id}` | Candidate / Recruiter | Retrieve job opening details (role-isolated). |
+| `POST` | `/jobs/{id}/apply` | Candidate | Apply to an open job posting with a selected resume. |
+| `GET` | `/applications/mine` | Candidate | List submitted applications with status and resume filename. |
 | `GET` | `/applications/{id}` | Recruiter (Job Owner) | View applicant dossier with privacy-controlled contact reveal and skill evidence. |
+
+---
+
+## Candidate Job Flow (Phase 5B)
+
+Candidates can discover and apply for open positions through an integrated, privacy-first workflow:
+- Browse open job postings with debounced keyword search, pagination, and required/preferred skill tags.
+- Review detailed job specifications and submit applications with a chosen parsed resume document.
+- Track submitted applications and review statuses in real-time without exposing recruiter-internal notes.
+
+### Candidate Routes
+- `/candidate/jobs`: Publicly open job openings listing with search, filters, and skill importance breakdown.
+- `/candidate/jobs/:jobId`: Detailed job view featuring required qualifications and one-click application submission modal.
+- `/candidate/applications`: Application status tracking dashboard displaying attached resumes and evaluation progress.
+
+### Screenshot & Verification Checklist
+- [ ] `/candidate/jobs` with open jobs list, search bar, and skill badges.
+- [ ] `/candidate/jobs` empty search state when query has no matches.
+- [ ] `/candidate/jobs/:jobId` full job description and skill requirement breakdown.
+- [ ] `/candidate/jobs/:jobId` clean 404 "Job Not Found" state for non-existent or closed jobs.
+- [ ] `ApplyModal` with resume selector showing parse status and pre-selected parsed CV.
+- [ ] `ApplyModal` consent guard alerting user when data processing consent is missing.
+- [ ] `ApplyModal` empty resumes guard alerting user when no CVs are uploaded.
+- [ ] `ApplyModal` duplicate submission 409 conflict message with link to applications.
+- [ ] `/candidate/applications` history table displaying job title, attached resume filename, and candidate status badge.
+- [ ] `/candidate/applications` empty state with button to browse jobs.
+- [ ] Candidate Dashboard (`/candidate`) job applications card showing accurate count and link to `/candidate/applications`.
+- [ ] Candidate Resumes (`/candidate/resumes`) blocking deletion of attached resume with 409 error banner.
 
 ---
 
