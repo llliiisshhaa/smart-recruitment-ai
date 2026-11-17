@@ -97,5 +97,23 @@ export const jobsApi = {
     const response = await apiClient.patch(`/jobs/${jobId}/status`, { status });
     return response.data;
   },
+
+  /**
+   * Stateless rule-based job description analyzer.
+   * Suggests skills, experience, education, responsibilities, and flags potentially biased wording.
+   * @param {{ title?: string, description: string }} payload
+   * @returns {Promise<{
+   *   skills: Array<{ skill_id: number, name: string, suggested_importance: 'required' | 'preferred', evidence_text: string }>,
+   *   min_experience_years: number | null,
+   *   education: string | null,
+   *   responsibilities: Array<string>,
+   *   fairness_warnings: Array<{ matched_phrase: string, category: string, suggested_rewrite: string }>,
+   *   meta: Record<string, any>
+   * }>}
+   */
+  async analyzeJobDescription(payload) {
+    const response = await apiClient.post('/jobs/analyze', payload);
+    return response.data;
+  },
 };
 

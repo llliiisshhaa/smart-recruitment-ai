@@ -1,0 +1,117 @@
+[
+  {
+    "term": "young and energetic",
+    "category": "age",
+    "suggested_rewrite": "energetic or dynamic professional"
+  },
+  {
+    "term": "youthful",
+    "category": "age",
+    "suggested_rewrite": "dynamic or proactive"
+  },
+  {
+    "term": "digital native",
+    "category": "age",
+    "suggested_rewrite": "proficient with modern digital tools"
+  },
+  {
+    "term": "recent graduate",
+    "category": "age",
+    "suggested_rewrite": "entry-level professional"
+  },
+  {
+    "term": "fresh graduate",
+    "category": "age",
+    "suggested_rewrite": "entry-level professional"
+  },
+  {
+    "term": "mature candidate",
+    "category": "age",
+    "suggested_rewrite": "experienced candidate"
+  },
+  {
+    "term": "male candidate",
+    "category": "gender",
+    "suggested_rewrite": "candidate"
+  },
+  {
+    "term": "female candidate",
+    "category": "gender",
+    "suggested_rewrite": "candidate"
+  },
+  {
+    "term": "salesman",
+    "category": "gender",
+    "suggested_rewrite": "sales representative"
+  },
+  {
+    "term": "saleswoman",
+    "category": "gender",
+    "suggested_rewrite": "sales representative"
+  },
+  {
+    "term": "manpower",
+    "category": "gender",
+    "suggested_rewrite": "workforce or personnel"
+  },
+  {
+    "term": "ninja",
+    "category": "gender_coded",
+    "suggested_rewrite": "specialist or expert"
+  },
+  {
+    "term": "rockstar",
+    "category": "gender_coded",
+    "suggested_rewrite": "high performer or specialist"
+  },
+  {
+    "term": "guru",
+    "category": "gender_coded",
+    "suggested_rewrite": "subject matter expert"
+  },
+  {
+    "term": "unmarried",
+    "category": "marital_status",
+    "suggested_rewrite": "remove marital status criteria"
+  },
+  {
+    "term": "single candidates only",
+    "category": "marital_status",
+    "suggested_rewrite": "remove marital status criteria"
+  },
+  {
+    "term": "single candidate only",
+    "category": "marital_status",
+    "suggested_rewrite": "remove marital status criteria"
+  },
+  {
+    "term": "single candidate",
+    "category": "marital_status",
+    "suggested_rewrite": "remove marital status criteria"
+  },
+  {
+    "term": "native english speaker",
+    "category": "nationality",
+    "suggested_rewrite": "fluent in English"
+  },
+  {
+    "term": "native speaker",
+    "category": "nationality",
+    "suggested_rewrite": "fluent proficiency in the required language"
+  },
+  {
+    "term": "us citizens only",
+    "category": "nationality",
+    "suggested_rewrite": "authorized to work locally"
+  },
+  {
+    "term": "us citizen only",
+    "category": "nationality",
+    "suggested_rewrite": "authorized to work locally"
+  },
+  {
+    "term": "citizens only",
+    "category": "nationality",
+    "suggested_rewrite": "authorized to work locally"
+  }
+]

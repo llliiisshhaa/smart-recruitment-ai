@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai.services.job_analyzer import analyze_job_description
 from app.core.dependencies import get_current_user, require_roles
 from app.database import get_db
 from app.models.audit import AuditLog
@@ -22,6 +23,8 @@ from app.schemas.applications import (
     CandidateApplicationItem,
 )
 from app.schemas.jobs import (
+    JobAnalyzeRequest,
+    JobAnalyzeResponse,
     JobCreate,
     JobResponse,
     JobStatusUpdate,
@@ -95,6 +98,45 @@ def create_job(
         )
 
     return build_recruiter_job_response(job, db, application_count=0)
+
+
+@router.post(
+    "/analyze",
+    response_model=JobAnalyzeResponse,
+    status_code=status.HTTP_200_OK,
+)
+def analyze_job(
+    req: JobAnalyzeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("recruiter")),
+) -> JobAnalyzeResponse:
+    """
+    Stateless rule-based job description analyzer for recruiters.
+    Suggests skills, importance, minimum experience, education, and responsibilities,
+    and flags potentially non-inclusive phrasing.
+    """
+    analysis = analyze_job_description(
+        db,
+        title=req.title,
+        description=req.description,
+    )
+
+    audit = AuditLog(
+        user_id=current_user.id,
+        action="JOB_DESCRIPTION_ANALYZED",
+        entity_type="Job",
+        entity_id=None,
+        details={
+            "title_length": len(req.title or ""),
+            "description_length": len(req.description),
+            "skills_suggested_count": len(analysis.get("skills", [])),
+            "warnings_count": len(analysis.get("fairness_warnings", [])),
+        },
+    )
+    db.add(audit)
+    db.commit()
+
+    return JobAnalyzeResponse(**analysis)
 
 
 @router.get("/mine", response_model=List[RecruiterJobResponse])

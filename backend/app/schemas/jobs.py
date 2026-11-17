@@ -3,7 +3,7 @@ Pydantic schemas for job postings and associated skills.
 """
 
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -116,3 +116,65 @@ class RecruiterJobResponse(JobResponse):
     """Enriched job representation for owning recruiters, including application count."""
 
     application_count: int = 0
+
+
+class JobAnalyzeRequest(BaseModel):
+    """Payload for requesting rule-based job description analysis."""
+
+    title: Optional[str] = Field(default="", max_length=150)
+    description: str = Field(...)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, v: str) -> str:
+        if not isinstance(v, str):
+            raise ValueError("description must be a string")
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("Description is required and cannot be blank or whitespace only")
+        if len(stripped) > 10000:
+            raise ValueError("Description cannot exceed 10,000 characters")
+        return stripped
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: Optional[str]) -> str:
+        if v is None:
+            return ""
+        if not isinstance(v, str):
+            raise ValueError("title must be a string")
+        stripped = v.strip()
+        if len(stripped) > 150:
+            raise ValueError("Title length cannot exceed 150 characters")
+        return stripped
+
+
+class JobSkillSuggestion(BaseModel):
+    """Skill suggestion with evidence and suggested importance."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    skill_id: int
+    name: str
+    category: str
+    evidence_text: str
+    suggested_importance: Literal["required", "preferred"]
+
+
+class FairnessWarning(BaseModel):
+    """Identified potentially non-inclusive phrasing with neutral alternative."""
+
+    matched_phrase: str
+    category: str
+    suggested_rewrite: str
+
+
+class JobAnalyzeResponse(BaseModel):
+    """Rule-based suggestion payload returned to recruiter."""
+
+    skills: List[JobSkillSuggestion] = []
+    min_experience_years: Optional[int] = None
+    education: Optional[str] = None
+    responsibilities: List[str] = []
+    fairness_warnings: List[FairnessWarning] = []
+    meta: Dict[str, Any] = {}
