@@ -249,8 +249,11 @@ The system provides a hardened, role-based authentication and authorization mech
 | `GET` | `/jobs` | Candidate | Browse open job postings with keyword search and pagination. |
 | `GET` | `/jobs/{id}` | Candidate / Recruiter | Retrieve job opening details (role-isolated). |
 | `POST` | `/jobs/{id}/apply` | Candidate | Apply to an open job posting with a selected resume. |
+| `GET` | `/jobs/{id}/applications` | Recruiter (Job Owner) | List applicants for owned job opening with pagination. |
 | `GET` | `/applications/mine` | Candidate | List submitted applications with status and resume filename. |
 | `GET` | `/applications/{id}` | Recruiter (Job Owner) | View applicant dossier with privacy-controlled contact reveal and skill evidence. |
+| `GET` | `/applications/{id}/resume` | Recruiter (Job Owner) | Download applicant resume as binary stream. |
+| `POST` | `/applications/{id}/review` | Recruiter (Job Owner) | Submit human recruiter evaluation decision (shortlist/hold/reject) and notes. |
 
 ---
 
@@ -279,6 +282,38 @@ Candidates can discover and apply for open positions through an integrated, priv
 - [ ] `/candidate/applications` empty state with button to browse jobs.
 - [ ] Candidate Dashboard (`/candidate`) job applications card showing accurate count and link to `/candidate/applications`.
 - [ ] Candidate Resumes (`/candidate/resumes`) blocking deletion of attached resume with 409 error banner.
+
+---
+
+## Recruiter Review Flow (Phase 6 & Phase 7)
+
+Recruiters evaluate candidate applications through a privacy-first, audit-logged evaluation system:
+- Access applicant listings per owned job opening with dual status and decision filters and pagination.
+- Inspect full applicant dossiers featuring extracted skill evidence, context verification tags, and section provenance.
+- Maintain anti-bias privacy by keeping contact details protected by default, requiring explicit, audit-logged confirmation to reveal.
+- Record human-in-the-loop hiring decisions (`shortlist`, `hold`, `reject`) with persistent notes and review timeline tracking.
+
+### Recruiter Routes
+- `/recruiter/jobs/:jobId/applications`: Applicant listing table for a specific job with status/decision filters.
+- `/recruiter/applications/:applicationId`: Comprehensive candidate evaluation dossier with skill evidence, resume download, and review form.
+
+### Recruiter Review Screenshot & Verification Checklist
+- [ ] `/recruiter/jobs/:jobId/applications` applicant table showing candidate name, headline, applied date, status badge, and latest decision.
+- [ ] `/recruiter/jobs/:jobId/applications` status filter and decision filter in action.
+- [ ] `/recruiter/jobs/:jobId/applications` page notice "Filters apply to the current page only" when total applicants exceed page size.
+- [ ] `/recruiter/jobs/:jobId/applications` empty state when no applications are received for a job.
+- [ ] `/recruiter/jobs/:jobId/applications` clean 404 "Job Not Found" state when accessing an unowned or non-existent job.
+- [ ] `/recruiter/applications/:applicationId` applicant dossier showing candidate profile, job role, and neutral match score notice.
+- [ ] `/recruiter/applications/:applicationId` contact details hidden by default with privacy explanation.
+- [ ] `/recruiter/applications/:applicationId` reveal contact confirmation modal stating the action is permanently audit-logged.
+- [ ] `/recruiter/applications/:applicationId` contact details revealed in-place without storing to localStorage or URL.
+- [ ] `/recruiter/applications/:applicationId` authenticated resume download button downloading original PDF/DOCX file.
+- [ ] `/recruiter/applications/:applicationId` parsed skill cards showing skill name, category, detected section, and verbatim evidence sentence.
+- [ ] `/recruiter/applications/:applicationId` unparsed resume state showing "Resume not parsed yet".
+- [ ] `/recruiter/applications/:applicationId` review submission form with shortlist, hold, and reject buttons and live 1000-character counter.
+- [ ] `/recruiter/applications/:applicationId` review submission updating timeline and status to "reviewed" without refetching dossier.
+- [ ] `/recruiter/applications/:applicationId` persistent notice: "AI-assisted insights support, but do not replace, recruiter judgement."
+- [ ] `/recruiter/applications/:applicationId` clean 404 "Application Not Found" state when accessing an unowned application.
 
 ---
 
