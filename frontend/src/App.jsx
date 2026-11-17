@@ -15,6 +15,8 @@ import { CandidateJobDetail } from './pages/CandidateJobDetail.jsx';
 import { CandidateApplications } from './pages/CandidateApplications.jsx';
 import { RecruiterDashboard } from './pages/RecruiterDashboard.jsx';
 import { RecruiterJobs } from './pages/RecruiterJobs.jsx';
+import { RecruiterJobApplications } from './pages/RecruiterJobApplications.jsx';
+import { RecruiterApplicantDossier } from './pages/RecruiterApplicantDossier.jsx';
 import { NotFoundPage } from './pages/NotFoundPage.jsx';
 
 export default function App() {
@@ -48,7 +50,8 @@ export default function App() {
             <Route path="/recruiter" element={<AppLayout />}>
               <Route index element={<RecruiterDashboard />} />
               <Route path="jobs" element={<RecruiterJobs />} />
-              <Route path="jobs/:jobId/applications" element={<div className="p-8 text-center text-slate-400">Applicant Listing coming in Phase 6</div>} />
+              <Route path="jobs/:jobId/applications" element={<RecruiterJobApplications />} />
+              <Route path="applications/:applicationId" element={<RecruiterApplicantDossier />} />
             </Route>
           </Route>
 
