@@ -226,6 +226,7 @@ def app_api(tmp_path, monkeypatch):
             "job_ids": job_ids,
             "resume_ids": resume_ids,
             "session_factory": TestingSessionLocal,
+            "engine": engine,
         }
 
     app.dependency_overrides.clear()
@@ -257,6 +258,7 @@ def test_candidate_applies_with_own_resume(app_api):
     data = res.json()
     assert data["job_id"] == app_api["job_ids"]["open"]
     assert data["status"] == "applied"
+    assert data["resume_filename"] == "cand1_resume.pdf"
     app_id = data["id"]
 
     # Verify database state: match_score is None
@@ -353,6 +355,7 @@ def test_candidate_sees_only_own_applications(app_api):
     assert len(c1_apps) == 1
     assert c1_apps[0]["job_title"] == "Senior Python Developer"
     assert c1_apps[0]["status"] == "applied"
+    assert c1_apps[0]["resume_filename"] == "cand1_resume.pdf"
 
     # Candidate 2 lists applications
     app_api["active_user"]["id"] = app_api["user_ids"]["candidate2"]
@@ -538,3 +541,97 @@ def test_review_submission_updates_status_and_preserves_history(app_api):
     assert list_res.status_code == 200
     items = list_res.json()["items"]
     assert items[0]["latest_review_decision"] == "shortlist"
+
+
+def test_candidate_application_history_returns_null_when_resume_missing(app_api):
+    client = app_api["client"]
+    session_factory = app_api["session_factory"]
+
+    # Directly create an application with resume_id=None (simulating deleted resume)
+    with session_factory() as db:
+        app_record = Application(
+            candidate_id=app_api["user_ids"]["candidate2"],
+            job_id=app_api["job_ids"]["open"],
+            resume_id=None,
+            status="applied",
+        )
+        db.add(app_record)
+        db.commit()
+
+    app_api["active_user"]["id"] = app_api["user_ids"]["candidate2"]
+    res = client.get("/applications/mine")
+    assert res.status_code == 200
+    apps = res.json()
+    assert len(apps) == 1
+    assert apps[0]["resume_filename"] is None
+    assert apps[0]["job_title"] == "Senior Python Developer"
+
+
+def test_get_my_applications_avoids_n_plus_one_queries(app_api):
+    from sqlalchemy import event
+
+    client = app_api["client"]
+    session_factory = app_api["session_factory"]
+    engine = app_api["engine"]
+    cand_id = app_api["user_ids"]["candidate1"]
+
+    # Create 3 jobs and 3 resumes, then create 3 applications for candidate 1
+    with session_factory() as db:
+        rec_id = app_api["user_ids"]["recruiter1"]
+        for i in range(1, 4):
+            job = Job(
+                recruiter_id=rec_id,
+                title=f"Scale Job {i}",
+                description=f"Desc {i}",
+                min_experience_years=i,
+                status="open",
+            )
+            resume = Resume(
+                candidate_id=cand_id,
+                file_path=f"/tmp/scale_resume_{i}.pdf",
+                original_filename=f"scale_resume_{i}.pdf",
+                parse_status="parsed",
+            )
+            db.add_all([job, resume])
+            db.flush()
+
+            app_item = Application(
+                candidate_id=cand_id,
+                job_id=job.id,
+                resume_id=resume.id,
+                status="applied",
+            )
+            db.add(app_item)
+        db.commit()
+
+    app_api["active_user"]["id"] = cand_id
+
+    # Track executed queries during GET /applications/mine
+    executed_statements = []
+
+    def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        executed_statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        res = client.get("/applications/mine")
+        assert res.status_code == 200
+        apps = res.json()
+        assert len(apps) == 3
+        # Assert each application returned its distinct resume filename
+        filenames = {a["resume_filename"] for a in apps}
+        assert filenames == {"scale_resume_1.pdf", "scale_resume_2.pdf", "scale_resume_3.pdf"}
+    finally:
+        event.remove(engine, "before_cursor_execute", before_cursor_execute)
+
+    # Filtering statements:
+    # 1. Main applications query with joinedload (SELECT ... FROM applications LEFT OUTER JOIN jobs ... LEFT OUTER JOIN resumes ...)
+    # If N+1 was present, there would be 3 additional SELECTs on jobs and 3 on resumes (total >= 8 statements).
+    app_queries = [stmt for stmt in executed_statements if "FROM applications" in stmt]
+    assert len(app_queries) == 1, f"Expected exactly 1 application query with joinedload, got {len(app_queries)}"
+
+    # Confirm zero subsequent queries for jobs or resumes
+    job_queries = [stmt for stmt in executed_statements if "FROM jobs " in stmt]
+    resume_queries = [stmt for stmt in executed_statements if "FROM resumes " in stmt]
+    assert len(job_queries) == 0, f"Expected 0 lazy job queries, got {len(job_queries)}"
+    assert len(resume_queries) == 0, f"Expected 0 lazy resume queries, got {len(resume_queries)}"

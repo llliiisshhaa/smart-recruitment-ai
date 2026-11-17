@@ -443,6 +443,7 @@ def apply_to_job(
         job_status=job.status,
         status=application.status,
         created_at=application.created_at,
+        resume_filename=resume.original_filename,
     )
 
 
