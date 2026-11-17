@@ -44,6 +44,17 @@ export const jobsApi = {
   },
 
   /**
+   * List applicants for a job owned by the authenticated recruiter.
+   * @param {number} jobId
+   * @param {{ limit?: number, offset?: number }} [params]
+   * @returns {Promise<{ items: Array<ApplicantSummaryItem>, total: number, limit: number, offset: number }>}
+   */
+  async getJobApplications(jobId, params) {
+    const response = await apiClient.get(`/jobs/${jobId}/applications`, { params });
+    return response.data;
+  },
+
+  /**
    * Create a new job opening.
    * @param {{
    *   title: string,

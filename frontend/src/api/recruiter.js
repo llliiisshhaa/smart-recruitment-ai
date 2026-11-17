@@ -39,5 +39,41 @@ export const recruiterApi = {
     const response = await apiClient.put('/recruiters/me', data);
     return response.data;
   },
+
+  /**
+   * Fetch comprehensive applicant evaluation dossier.
+   * Contact information is masked unless revealContact is explicitly set to true.
+   * @param {number} applicationId
+   * @param {boolean} [revealContact=false]
+   * @returns {Promise<ApplicantDetailResponse>}
+   */
+  async getApplicationDetail(applicationId, revealContact = false) {
+    const response = await apiClient.get(`/applications/${applicationId}`, {
+      params: { reveal_contact: revealContact },
+    });
+    return response.data;
+  },
+
+  /**
+   * Download the applicant's resume as a binary blob.
+   * @param {number} applicationId
+   * @returns {Promise<AxiosResponse<Blob>>}
+   */
+  async downloadApplicationResume(applicationId) {
+    return apiClient.get(`/applications/${applicationId}/resume`, {
+      responseType: 'blob',
+    });
+  },
+
+  /**
+   * Submit a recruiter review decision on an applicant.
+   * @param {number} applicationId
+   * @param {{ decision: 'shortlist' | 'hold' | 'reject', notes?: string }} payload
+   * @returns {Promise<ReviewResponse>}
+   */
+  async submitReview(applicationId, payload) {
+    const response = await apiClient.post(`/applications/${applicationId}/review`, payload);
+    return response.data;
+  },
 };
 
