@@ -20,6 +20,7 @@ from app.config import settings
 from app.core.dependencies import require_roles
 from app.database import get_db
 from app.models.audit import AuditLog
+from app.models.job import Application
 from app.models.resume import Resume, ResumeSkill, Skill
 from app.models.user import CandidateProfile, User
 from app.schemas.resume import (
@@ -348,6 +349,19 @@ def delete_my_resume(
 
     resume = get_owned_resume(db, resume_id, current_user.id)
     stored_path = Path(resume.file_path)
+
+    # Check whether the resume is associated with any job application
+    has_applications = (
+        db.query(Application.id)
+        .filter(Application.resume_id == resume.id)
+        .first()
+        is not None
+    )
+    if has_applications:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This resume is attached to an application and cannot be deleted.",
+        )
 
     audit_log = AuditLog(
         user_id=current_user.id,

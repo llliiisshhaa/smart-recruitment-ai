@@ -10,7 +10,7 @@ from app.config import settings
 from app.core.dependencies import get_current_user
 from app.database import Base, get_db
 from app.main import app
-from app.models import AuditLog, User
+from app.models import Application, AuditLog, Job, Resume, Skill, User
 
 
 @pytest.fixture
@@ -383,3 +383,99 @@ def test_recruiter_cannot_access_candidate_profile(api):
     response = client.get("/candidates/me")
 
     assert response.status_code == 403
+
+
+def test_delete_attached_resume_returns_409(api):
+    client = api["client"]
+    session_factory = api["session_factory"]
+
+    # 1. Seed a taxonomy skill for job creation
+    with session_factory() as db:
+        skill = Skill(name="python_dev", category="Backend")
+        db.add(skill)
+        db.commit()
+        skill_id = skill.id
+
+    # 2. Recruiter posts an open job
+    api["active_user"]["id"] = api["user_ids"]["recruiter"]
+    job_res = client.post(
+        "/jobs",
+        json={
+            "title": "Software Engineer",
+            "description": "Building backend APIs",
+            "min_experience_years": 1,
+            "skills": [{"skill_id": skill_id, "importance": "required"}],
+        },
+    )
+    assert job_res.status_code == 201, job_res.text
+    job_id = job_res.json()["id"]
+
+    # 3. Candidate gives consent and uploads a resume
+    api["active_user"]["id"] = api["user_ids"]["candidate1"]
+    give_consent(client)
+
+    upload_res = upload_test_pdf(client, filename="application_resume.pdf")
+    assert upload_res.status_code == 201, upload_res.text
+    resume_id = upload_res.json()["id"]
+
+    with session_factory() as db:
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        assert resume is not None
+        stored_file_path = Path(resume.file_path)
+    assert stored_file_path.exists()
+
+    # 4. Candidate applies to the job through the real apply endpoint
+    apply_res = client.post(
+        f"/jobs/{job_id}/apply",
+        json={"resume_id": resume_id},
+    )
+    assert apply_res.status_code == 201, apply_res.text
+    application_id = apply_res.json()["id"]
+
+    # 5. Candidate attempts to delete the attached resume
+    delete_res = client.delete(f"/resumes/{resume_id}")
+    assert delete_res.status_code == 409, delete_res.text
+    assert delete_res.json()["detail"] == "This resume is attached to an application and cannot be deleted."
+
+    # 6. Verify database record still exists
+    with session_factory() as db:
+        resume_after = db.query(Resume).filter(Resume.id == resume_id).first()
+        assert resume_after is not None
+        assert resume_after.id == resume_id
+
+        # 7. Verify application still references the same resume
+        app_after = db.query(Application).filter(Application.id == application_id).first()
+        assert app_after is not None
+        assert app_after.resume_id == resume_id
+
+    # 8. Verify stored file still exists on disk
+    assert stored_file_path.exists()
+
+
+def test_delete_unattached_resume_succeeds(api):
+    client = api["client"]
+    session_factory = api["session_factory"]
+
+    api["active_user"]["id"] = api["user_ids"]["candidate1"]
+    give_consent(client)
+
+    upload_res = upload_test_pdf(client, filename="unattached_resume.pdf")
+    assert upload_res.status_code == 201, upload_res.text
+    resume_id = upload_res.json()["id"]
+
+    with session_factory() as db:
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        assert resume is not None
+        stored_file_path = Path(resume.file_path)
+    assert stored_file_path.exists()
+
+    # Delete unattached resume
+    delete_res = client.delete(f"/resumes/{resume_id}")
+    assert delete_res.status_code == 204
+
+    # Verify resume record deleted from database
+    with session_factory() as db:
+        assert db.query(Resume).filter(Resume.id == resume_id).first() is None
+
+    # Verify stored file deleted from disk
+    assert not stored_file_path.exists()
