@@ -236,11 +236,12 @@ export function CandidateDashboard() {
               </div>
             )}
           </div>
-          <span className="mt-4 text-xs font-medium text-slate-400">
-            {applicationsSupported
-              ? `${applications.length} applications total`
-              : "Feature in progress"}
-          </span>
+          <Link
+            to="/candidate/applications"
+            className="mt-4 inline-flex items-center text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            View Applications &rarr;
+          </Link>
         </div>
       </div>
 

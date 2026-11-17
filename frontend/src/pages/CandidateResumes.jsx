@@ -237,6 +237,7 @@ export function CandidateResumes() {
       setResumeToDelete(null);
       await refreshData();
     } catch (err) {
+      setResumeToDelete(null);
       setError(extractErrorMessage(err, "Failed to delete resume."));
     } finally {
       setDeleting(false);

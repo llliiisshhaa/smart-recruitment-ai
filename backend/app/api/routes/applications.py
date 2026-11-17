@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.dependencies import require_roles
 from app.database import get_db
@@ -37,10 +37,14 @@ def get_my_applications(
     """
     List all applications submitted by the authenticated candidate.
     Ordered deterministically by application date.
+    Eager-loads job and resume relationships to avoid N+1 queries.
     """
     applications = (
         db.query(Application)
-        .join(Job, Application.job_id == Job.id)
+        .options(
+            joinedload(Application.job),
+            joinedload(Application.resume),
+        )
         .filter(Application.candidate_id == current_user.id)
         .order_by(Application.created_at.desc(), Application.id.desc())
         .all()
@@ -56,6 +60,7 @@ def get_my_applications(
                 job_status=app.job.status if app.job else "closed",
                 status=app.status,
                 created_at=app.created_at,
+                resume_filename=app.resume.original_filename if app.resume else None,
             )
         )
 

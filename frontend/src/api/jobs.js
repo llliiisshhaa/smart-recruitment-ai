@@ -2,6 +2,28 @@ import { apiClient } from './client.js';
 
 export const jobsApi = {
   /**
+   * Browse available open jobs for candidate.
+   * Supports ?q= keyword search, limit, and offset pagination.
+   * @param {{ q?: string, limit?: number, offset?: number }} [params]
+   * @returns {Promise<{ items: Array<JobResponse>, total: number, limit: number, offset: number }>}
+   */
+  async browseJobs(params) {
+    const response = await apiClient.get('/jobs', { params });
+    return response.data;
+  },
+
+  /**
+   * Apply to an open job opening with a selected resume.
+   * @param {number} jobId
+   * @param {{ resume_id: number }} payload
+   * @returns {Promise<CandidateApplicationItem>}
+   */
+  async applyToJob(jobId, payload) {
+    const response = await apiClient.post(`/jobs/${jobId}/apply`, payload);
+    return response.data;
+  },
+
+  /**
    * List all job postings belonging to the authenticated recruiter.
    * Includes application_count and associated taxonomy skills.
    * @returns {Promise<Array<RecruiterJobResponse>>}

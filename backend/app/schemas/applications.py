@@ -25,6 +25,7 @@ class CandidateApplicationItem(BaseModel):
     job_status: str
     status: str
     created_at: datetime
+    resume_filename: Optional[str] = None
 
 
 class ApplicantSummaryItem(BaseModel):

@@ -3,9 +3,9 @@
  * Displays normalized status badges across candidate and recruiter interfaces.
  * Maps status="applied" to "Awaiting review" per recruiter workflow requirements.
  */
-export function StatusBadge({ status, type }) {
-  // Handle consent type specifically
-  if (type === 'consent') {
+export function StatusBadge({ status, type, audience = 'recruiter' }) {
+  // Handle consent type specifically (or boolean status)
+  if (type === 'consent' || typeof status === 'boolean') {
     const isGranted = Boolean(status);
     return (
       <span
@@ -29,7 +29,16 @@ export function StatusBadge({ status, type }) {
   const normalizedStatus =
     typeof status === 'string' ? status.toLowerCase().trim() : '';
 
-  // Custom labels for specific domain statuses
+  // Custom labels for candidate audience
+  const candidateCustomLabels = {
+    applied: 'Applied / Under Review',
+    awaiting_review: 'Applied / Under Review',
+    interviewing: 'Interviewing',
+    reviewed: 'Reviewed',
+    completed: 'Completed',
+  };
+
+  // Custom labels for recruiter / default domain statuses
   const customLabels = {
     applied: 'Awaiting review',
     awaiting_review: 'Awaiting review',
@@ -81,6 +90,7 @@ export function StatusBadge({ status, type }) {
   };
 
   const label =
+    (audience === 'candidate' && candidateCustomLabels[normalizedStatus]) ||
     customLabels[normalizedStatus] ||
     (normalizedStatus
       ? normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1)
