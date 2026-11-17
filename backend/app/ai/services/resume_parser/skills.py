@@ -86,6 +86,34 @@ def _extract_sentence_containing_match(text: str, start_idx: int, end_idx: int) 
     return f"...{snippet}..."
 
 
+def build_term_patterns(
+    canonical_skills: Optional[List[str]] = None,
+) -> List[Tuple[str, str, re.Pattern]]:
+    """
+    Build sorted (search_term, canonical_name, compiled_regex) tuples
+    from canonical skills and alias mapping.
+    Sorted descending by term length to ensure longest match priority.
+    """
+    valid_canonicals: Set[str] = set(
+        s.lower() for s in (canonical_skills or DEFAULT_CANONICAL_SKILLS)
+    )
+    aliases = load_skill_aliases()
+
+    term_to_canonical: Dict[str, str] = {}
+    for canon in valid_canonicals:
+        term_to_canonical[canon] = canon
+
+    for alias, canon in aliases.items():
+        if canon.lower() in valid_canonicals:
+            term_to_canonical[alias.lower()] = canon.lower()
+
+    sorted_terms = sorted(term_to_canonical.keys(), key=lambda t: len(t), reverse=True)
+    return [
+        (term, term_to_canonical[term], _build_skill_pattern(term))
+        for term in sorted_terms
+    ]
+
+
 def extract_skills(
     sections: Dict[str, str],
     canonical_skills: Optional[List[str]] = None,
@@ -98,21 +126,7 @@ def extract_skills(
     - Sets supported_by_context = True if the skill appears in 'projects' or 'experience'.
     - Deduplicates skills while retaining strongest evidence.
     """
-    valid_canonicals: Set[str] = set(s.lower() for s in (canonical_skills or DEFAULT_CANONICAL_SKILLS))
-    aliases = load_skill_aliases()
-
-    # Combine canonical skills + aliases into term_to_canonical mapping
-    term_to_canonical: Dict[str, str] = {}
-    for canon in valid_canonicals:
-        term_to_canonical[canon] = canon
-
-    for alias, canon in aliases.items():
-        if canon.lower() in valid_canonicals:
-            term_to_canonical[alias.lower()] = canon.lower()
-
-    # Sort search terms descending by length so longer multi-word phrases match before substrings
-    sorted_terms = sorted(term_to_canonical.keys(), key=lambda t: len(t), reverse=True)
-    term_patterns = [(term, term_to_canonical[term], _build_skill_pattern(term)) for term in sorted_terms]
+    term_patterns = build_term_patterns(canonical_skills)
 
     skill_detections: Dict[str, Dict[str, Any]] = {}
     contextual_sections = {"projects", "experience", "internships"}
